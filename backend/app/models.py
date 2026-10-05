@@ -55,5 +55,22 @@ class BathReading(Base):
     basin_id: Mapped[int] = mapped_column(ForeignKey("basins.id"))
     taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     water_temp_c: Mapped[float] = mapped_column(Float)
+    steam_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     operator: Mapped[str] = mapped_column(String(64), default="")
     basin: Mapped[Basin] = relationship(back_populates="readings")
+
+
+class SteamBand(Base):
+    """蒸汽开度带：同一坞现行带最多一条（filature_id 唯一）。"""
+
+    __tablename__ = "steam_bands"
+    __table_args__ = (UniqueConstraint("filature_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    filature_id: Mapped[int] = mapped_column(ForeignKey("filatures.id"))
+    lower_pct: Mapped[float] = mapped_column(Float)
+    upper_pct: Mapped[float] = mapped_column(Float)
+    updated_by: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

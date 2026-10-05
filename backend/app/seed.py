@@ -3,7 +3,7 @@ from datetime import timedelta
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Basin, BathReading, Filature, User, utcnow
+from app.models import Basin, BathReading, Filature, SteamBand, User, utcnow
 from app.security import hash_password
 
 
@@ -28,12 +28,33 @@ async def seed_demo() -> None:
 
         mill = (await session.execute(select(Filature))).scalars().first()
         if mill:
+            # 老库补种子带；已存在的带（含管理员改过的）原样保留。
+            band = await session.execute(
+                select(SteamBand).where(SteamBand.filature_id == mill.id)
+            )
+            if band.scalar_one_or_none() is None:
+                session.add(
+                    SteamBand(
+                        filature_id=mill.id,
+                        lower_pct=20.0,
+                        upper_pct=40.0,
+                        updated_by="admin",
+                    )
+                )
             await session.commit()
             return
 
         mill = Filature(name="江口缫丝坞", riverside="东津渡")
         session.add(mill)
         await session.flush()
+        session.add(
+            SteamBand(
+                filature_id=mill.id,
+                lower_pct=20.0,
+                upper_pct=40.0,
+                updated_by="admin",
+            )
+        )
         now = utcnow()
         specs = [
             ("甲-1", Basin.STATUS_REELING, 40.5, 0),
