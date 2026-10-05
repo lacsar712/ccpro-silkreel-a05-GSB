@@ -1,6 +1,14 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -28,6 +36,9 @@ class Filature(Base):
     name: Mapped[str] = mapped_column(String(120))
     riverside: Mapped[str] = mapped_column(String(120), default="")
     basins: Mapped[list["Basin"]] = relationship(back_populates="filature")
+    steam_band: Mapped["SteamBand | None"] = relationship(
+        back_populates="filature", uselist=False
+    )
 
 
 class Basin(Base):
@@ -48,6 +59,23 @@ class Basin(Base):
     readings: Mapped[list["BathReading"]] = relationship(back_populates="basin")
 
 
+class SteamBand(Base):
+    """同一坞现行蒸汽开度带，最多一条（filature_id 唯一）。"""
+
+    __tablename__ = "steam_bands"
+    __table_args__ = (UniqueConstraint("filature_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    filature_id: Mapped[int] = mapped_column(ForeignKey("filatures.id"))
+    min_pct: Mapped[float] = mapped_column(Float)
+    max_pct: Mapped[float] = mapped_column(Float)
+    updated_by: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    filature: Mapped[Filature] = relationship(back_populates="steam_band")
+
+
 class BathReading(Base):
     __tablename__ = "bath_readings"
 
@@ -55,5 +83,6 @@ class BathReading(Base):
     basin_id: Mapped[int] = mapped_column(ForeignKey("basins.id"))
     taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     water_temp_c: Mapped[float] = mapped_column(Float)
+    steam_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     operator: Mapped[str] = mapped_column(String(64), default="")
     basin: Mapped[Basin] = relationship(back_populates="readings")

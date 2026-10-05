@@ -3,8 +3,11 @@ from datetime import timedelta
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Basin, BathReading, Filature, User, utcnow
+from app.models import Basin, BathReading, Filature, SteamBand, User, utcnow
 from app.security import hash_password
+
+SEED_BAND_MIN = 20.0
+SEED_BAND_MAX = 40.0
 
 
 async def seed_demo() -> None:
@@ -28,6 +31,7 @@ async def seed_demo() -> None:
 
         mill = (await session.execute(select(Filature))).scalars().first()
         if mill:
+            await _ensure_seed_band(session, mill.id)
             await session.commit()
             return
 
@@ -56,4 +60,22 @@ async def seed_demo() -> None:
                         taken_at=now - timedelta(hours=2),
                     )
                 )
+        await _ensure_seed_band(session, mill.id)
         await session.commit()
+
+
+async def _ensure_seed_band(session, filature_id: int) -> None:
+    """老库补建现行开度带 20～40；主管已设置过则不覆盖。"""
+    existing = await session.execute(
+        select(SteamBand).where(SteamBand.filature_id == filature_id)
+    )
+    if existing.scalar_one_or_none() is not None:
+        return
+    session.add(
+        SteamBand(
+            filature_id=filature_id,
+            min_pct=SEED_BAND_MIN,
+            max_pct=SEED_BAND_MAX,
+            updated_by="admin",
+        )
+    )
